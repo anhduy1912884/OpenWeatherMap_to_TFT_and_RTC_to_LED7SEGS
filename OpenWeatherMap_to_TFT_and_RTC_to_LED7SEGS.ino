@@ -31,9 +31,6 @@ String countryCode = "VN";
 // THE DEFAULT TIMER IS SET TO 10 SECONDS FOR TESTING PURPOSES
 // For a final application, check the API call limits per hour/minute to avoid getting blocked/banned
 unsigned long lastTime = 0;
-// Timer set to 10 minutes (600000)
-//unsigned long timerDelay = 600000;
-// Set timer to 10 seconds (10000)
 unsigned long timerDelay = 10000;
 char buffer[10]; 
 String jsonBuffer;
@@ -42,9 +39,6 @@ String jsonBuffer;
 #define TFT_RST   D4     // TFT RST pin is connected to NodeMCU pin D4 (GPIO2)
 #define TFT_CS    D3     // TFT CS  pin is connected to NodeMCU pin D4 (GPIO0)
 #define TFT_DC    D8     // TFT DC  pin is connected to NodeMCU pin D4 (GPIO4)
-// initialize ST7735 TFT library with hardware SPI module
-// SCK (CLK) ---> NodeMCU pin D5 (GPIO14)
-// MOSI(DIN) ---> NodeMCU pin D7 (GPIO13)
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
 /***********************************************************END TFT ******************************************/
 typedef struct {
@@ -64,20 +58,11 @@ void setup() {
   //tft.setRotation(4);
   tft.fillScreen(ST7735_BLACK);
   delay(1000);
-
-  Serial.begin(115200);
-
   WiFi.begin(ssid, password);
-  Serial.println("Connecting");
   while(WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Serial.print(".");
   }
-  Serial.println("");
-  Serial.print("Connected to WiFi network with IP Address: ");
-  //Serial.println(WiFi.localIP());
  
-  //Serial.println("Timer set to 10 seconds (timerDelay variable), it will take 10 seconds before publishing the first reading.");
   rtc.begin();
   display.setBrightness(7); 
  // rtc.set(00, 2 , 20 , 10, 10, 2023);
@@ -105,11 +90,9 @@ thoiTiet.y = 15+15;
     if(WiFi.status()== WL_CONNECTED){
       String serverPath = "http://api.openweathermap.org/data/2.5/weather?q=" + city + "," + countryCode + "&APPID=" + openWeatherMapApiKey;      
       jsonBuffer = httpGETRequest(serverPath.c_str());
-      // Serial.println(jsonBuffer);
       JSONVar myObject = JSON.parse(jsonBuffer);
       // JSON.typeof(jsonVar) can be used to get the type of the var
       if (JSON.typeof(myObject) == "undefined") {
-        Serial.println("Parsing input failed!");
         return;
       }
       /* LED 7 SEG              LED 7 SEG                LED 7 SEG            LED 7 SEG              LED 7 SEG                LED 7 SEG */
@@ -117,12 +100,6 @@ thoiTiet.y = 15+15;
       uint16_t year;
       rtc.get(&sec, &min, &hour, &day, &month, &year);
       bool isNight = (hour >= 17 && hour <=23 ) || (hour >= 0 && hour <= 6) ;
-      /*
-      if (min == 0 ) hour = hour * 100 ;
-      if (min > 0 && min < 10)  hour = hour*10 ;
-      String timeString = String(hour) + String(min);
-      display.showNumberDecEx(timeString.toInt(), 0b11110000, true);
-      delay(500); */
       /* TIME DISPLAY       TIME DISPLAY       TIME DISPLAY      TIME DISPLAY     TIME DISPLAY     TIME DISPLAY     TIME DISPLAY      TIME DISPLAY     TIME DISPLAY  */
       tft.fillRoundRect(10+1+15 , 1 , 60 , 14, 0, ST7735_BLACK);
       tft.setFont(&FreeSans9pt7b);  // FreeSansBold9pt7b   &FreeSans9pt7b
@@ -152,8 +129,6 @@ thoiTiet.y = 15+15;
       testdrawtext("C" , ST7735_WHITE ,1 , nhietDo.x+43+15 , nhietDo.y -10);
 
       tft.setFont(&FreeSans9pt7b);  // FreeSansBold9pt7b
-      Serial.print("Humidity: ");
-      Serial.println(myObject["main"]["humidity"]);
       double Humid = myObject["main"]["humidity"] ;
       dtostrf(Humid, 3, 0, buffer); 
       sprintf(buffer, "%s%%", buffer); // Sử dụng sprintf để nối chuỗi buffer với "%"
@@ -183,9 +158,7 @@ thoiTiet.y = 15+15;
         else tft.drawRGBBitmap(thoiTiet.x , thoiTiet.x , colorFine , 64, 64) ;
       }
     }
-    else {
-      Serial.println("WiFi Disconnected");
-    }
+   
     lastTime = millis();
   }
 }
@@ -199,14 +172,9 @@ String httpGETRequest(const char* serverName) {
   int httpResponseCode = http.GET();
   String payload = "{}"; 
   if (httpResponseCode>0) {
-    Serial.print("HTTP Response code: ");
-    Serial.println(httpResponseCode);
     payload = http.getString();
   }
-  else {
-    Serial.print("Error code: ");
-    Serial.println(httpResponseCode);
-  }
+
   http.end();
   return payload;
 }
@@ -229,12 +197,8 @@ char * TMdate(char day, char mon, uint16_t year) {
     date.tm_year = year - 1900; // Năm 2023 (trừ đi 1900)
     date.tm_mon = mon - 1;      // Tháng 10 (trừ đi 1)
     date.tm_mday = day;          // Ngày 7
-
     // Tính thứ trong tuần (0: Chủ Nhật, 1: Thứ Hai, ..., 6: Thứ Bảy)
     std::mktime(&date);
     int dayOfWeek = date.tm_wday;
-    
     return Week[dayOfWeek];
 }
-
-
