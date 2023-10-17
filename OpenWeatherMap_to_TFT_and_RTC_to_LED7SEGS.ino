@@ -1,3 +1,4 @@
+/* Portrait Display */
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiClient.h>
@@ -55,7 +56,6 @@ char* thuTrongTuan ;
 
 void setup() {
   tft.initR(INITR_18BLACKTAB);   //  INITR_BLACKTAB initialize a ST7735S chip, black tab
-  //tft.setRotation(4);
   tft.fillScreen(ST7735_BLACK);
   delay(1000);
   WiFi.begin(ssid, password);
@@ -185,10 +185,6 @@ void testdrawtext(char *text, uint16_t color , uint16_t TextSize , uint16_t ver_
   tft.setTextColor(color);
   tft.setTextWrap(true);
   tft.print(text);
-}
-
-void TFT_clear_all () {
-    tft.fillScreen(ST7735_BLACK);
 }
 
 char * TMdate(char day, char mon, uint16_t year) {
