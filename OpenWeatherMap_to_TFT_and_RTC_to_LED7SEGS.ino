@@ -6,7 +6,6 @@
 #include "weather_image.h"
 #include <Adafruit_ST7735.h>   // include Adafruit ST7735 TFT library
 #include <Adafruit_GFX.h>      // include Adafruit graphics library
-
 #include <Fonts/FreeMonoBold12pt7b.h>
 #include <Fonts/FreeMono12pt7b.h>
 #include <Fonts/FreeSans9pt7b.h>
@@ -14,11 +13,10 @@
 #include <Fonts/FreeSansBold18pt7b.h>
 #include <Fonts/FreeSansBold9pt7b.h>
 #include <Wire.h>
-#include <DS1307.h>
-//#include <TM1637Display.h>
 #include <ctime>
-DS1307 rtc;
-//TM1637Display display(D1, D2);
+
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 
 #include <iostream>
 #include <string>
@@ -63,34 +61,30 @@ toaDo doAm ;
 toaDo thoiTiet ;
 toaDo ngay ;
 toaDo gioPhut ;
+//String weekDays[7]={"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
 char * monthName[12] = {" Jan" , " Feb" , " Mar" , " Apr" , " May" , " Jun", " Jul" , " Aug" , " Sep" , " Oct" , " Nov" , " Dec"};
 char * TMdate(char day, char mon, uint16_t year);
 char* thuTrongTuan ;
+
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP);
 
 void setup() {
   tft.initR(INITR_18BLACKTAB);   //  INITR_BLACKTAB initialize a ST7735S chip, black tab
   tft.fillScreen(ST7735_BLACK);
   tft.setRotation(1);
   delay(500);
-  Serial.begin(115200);
+  //Serial.begin(115200);
 
   WiFi.begin(ssid, password);
-  Serial.println("Connecting");
+  //Serial.println("Connecting");
   while(WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Serial.print(".");
+    //Serial.print(".");
   }
-  Serial.println("");
-  Serial.print("Connected to WiFi network with IP Address: ");
-  rtc.begin();
-  //display.setBrightness(7); 
-  //rtc.set(00, 54 , 23 , 9, 2, 2024);
-  rtc.stop();
-  rtc.start();
-  uint8_t sec, min, hour, day, month;
-  uint16_t year;
-  rtc.get(&sec, &min, &hour, &day, &month, &year);
-  thuTrongTuan= TMdate(day, month , year);
+  //Serial.println("");
+  //Serial.print("Connected to WiFi network with IP Address: ");
+  timeClient.begin(); 
 }
 
 void loop() {
@@ -118,34 +112,51 @@ gioPhut.y =  1  ;
       JSONVar myObject = JSON.parse(jsonBuffer);
       // JSON.typeof(jsonVar) can be used to get the type of the var
       if (JSON.typeof(myObject) == "undefined") {
-        Serial.println("Parsing input failed!");
+        //Serial.println("Parsing input failed!");
         return;
       }
-      /* LED 7 SEG              LED 7 SEG                LED 7 SEG            LED 7 SEG              LED 7 SEG                LED 7 SEG */
-      uint8_t sec, min, hour, day, month;
-      uint16_t year;
-      rtc.get(&sec, &min, &hour, &day, &month, &year);
-      bool isNight = (hour >= 17 && hour <=23 ) || (hour >= 0 && hour <= 6) ;
+      /* TIME CLIENT */
+      timeClient.update();
+      time_t epochTime = timeClient.getEpochTime();
+      uint8_t ClientHour = timeClient.getHours();
+      ClientHour += 7 ;
+      if (ClientHour >= 24) {
+          ClientHour -= 24 ;
+        }
+      uint8_t ClienttMinute = timeClient.getMinutes();
       
-      if (min == 0 ) hour = hour * 100 ;
-      if (min > 0 && min < 10)  hour = hour*10 ;
-      String timeString = String(hour) + String(min);
-      //display.showNumberDecEx(timeString.toInt(), 0b11110000, true);
+      /* LED 7 SEG              LED 7 SEG                LED 7 SEG            LED 7 SEG              LED 7 SEG                LED 7 SEG */
+      struct tm *ptm = gmtime ((time_t *)&epochTime); 
+
+
+      int monthDay = ptm->tm_mday;
+      //Serial.println(monthDay);
+
+      int currentMonth = ptm->tm_mon+1;
+      String currentMonthName = monthName[currentMonth-1];
+      //Serial.println(currentMonthName);
+
+      int currentYear = ptm->tm_year+1900;
+      //Serial.println(currentYear);
+
+      thuTrongTuan= TMdate(monthDay, currentMonth , currentYear );
+
+      bool isNight = (ClientHour >= 17 && ClientHour <=23 ) || (ClientHour >= 0 && ClientHour <= 6) ;
       delay(500); 
       /* TIME DISPLAY       TIME DISPLAY       TIME DISPLAY      TIME DISPLAY     TIME DISPLAY     TIME DISPLAY     TIME DISPLAY      TIME DISPLAY     TIME DISPLAY  */
       
       tft.fillRoundRect(gioPhut.x , gioPhut.y , 48 , 14, 0, ST7735_BLACK);
       tft.setFont(&FreeSans9pt7b);  // FreeSansBold9pt7b   &FreeSans9pt7b
-      dtostrf(hour, 2, 0, buffer);
+      dtostrf(ClientHour, 2, 0, buffer);
       testdrawtext(buffer , 0Xffff , 1 , 1+ gioPhut.x , gioPhut.y) ;
-      dtostrf(min , 2, 0, buffer);
+      dtostrf(ClienttMinute , 2, 0, buffer);
       testdrawtext(buffer , 0Xffff , 1 , 25+gioPhut.x ,  gioPhut.y) ;
       testdrawtext(":" , 0Xffff , 1 , 21+gioPhut.x ,  gioPhut.y) ;
       
       /* DAY DISPLAY          DAY DISPLAY         DAY DISPLAY           DAY DISPLAY           DAY DISPLAY           DAY DISPLAY            */
       
-      dtostrf(day, 2, 0, buffer);
-      char * plus = monthName[month - 1] ;
+      dtostrf(monthDay, 2, 0, buffer);
+      char * plus = monthName[currentMonth - 1] ;
       sprintf(buffer + strlen(buffer), "%s", plus); // Nối plus vào buffer
       tft.setFont(NULL);
       testdrawtext(thuTrongTuan, 0Xffff , 1 , ngay.x  , ngay.y) ;
